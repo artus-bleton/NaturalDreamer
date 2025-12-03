@@ -37,8 +37,8 @@ class ReplayBuffer(object):
         self.nextObservations[i] = nextObservation
         self.dones[i]            = done
 
-        self.last_latents[i]          = last_latent_state
-        self.last_recurrentStates[i]  = last_recurrent_state
+        self.last_latents[i]          = last_latent_state.to_cpu()
+        self.last_recurrentStates[i]  = last_recurrent_state.to_cpu()
 
         self.bufferIndex = (self.bufferIndex + 1) % self.capacity
         if self.bufferIndex == 0:
