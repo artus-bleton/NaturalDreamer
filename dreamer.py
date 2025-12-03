@@ -57,15 +57,15 @@ class Dreamer:
         #     "actions"          : actions,           # (B,T, action_dim)
         #     "rewards"          : rewards,           # (B,T,1)
         #     "dones"            : dones,             # (B,T,1)
-        #     "last_latents"          : latents,           # (B,T, latentSize)
-        #     "last_recurrentStates"  : recurrentStates,   # (B,T, recurrentSize)
+        #     "latents"          : last_latents       # (B,T, latentSize)
+        #     " recurrentStates"  : last_recurrentStates,   # (B,T, recurrentSize)
         # })
 
         encodedObservations = self.encoder(data.observations.view(-1, *self.observationShape)).view(self.config.batchSize, self.config.batchLength, -1)
 
         # We now take care of the initial state
-        previousLatentState     = data.last_latents[:, 0].to(self.device)           # (B, latentSize)
-        previousRecurrentState  = data.last_recurrentStates[:, 0].to(self.device)   # (B, recurrentSize)
+        previousLatentState     = data.latents[:, 0].to(self.device)           # (B, latentSize)
+        previousRecurrentState  = data.recurrentStates[:, 0].to(self.device)   # (B, recurrentSize)
 
 
 
