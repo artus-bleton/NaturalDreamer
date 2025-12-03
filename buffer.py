@@ -73,7 +73,7 @@ class ReplayBuffer(object):
         last_latents           = torch.as_tensor(self.last_latents[sampleIndex],          device=self.device).float()
         last_recurrentStates   = torch.as_tensor(self.last_recurrentStates[sampleIndex],  device=self.device).float()
 
-        sample = attridict.attridict({
+        sample = attridict.AttriDict({
             "observations"     : observations,      # (B,T, *obs_shape)
             "nextObservations" : nextObservations,  # (B,T, *obs_shape)
             "actions"          : actions,           # (B,T, action_dim)
