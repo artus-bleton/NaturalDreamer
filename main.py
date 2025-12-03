@@ -35,7 +35,7 @@ def main(configFile):
 
 
 
-    dreamer.environmentInteraction(env, config.episodesBeforeStart, seed=config.seed)
+    mostRecentScore = dreamer.environmentInteraction(env, config.episodesBeforeStart, seed=config.seed)
 
     iterationsNum = config.gradientSteps // config.replayRatio
     for _ in range(iterationsNum):
