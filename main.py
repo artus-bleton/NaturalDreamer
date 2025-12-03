@@ -20,27 +20,34 @@ def main(configFile):
     checkpointFilenameBase  = os.path.join(config.folderNames.checkpointsFolder,    runName)
     videoFilenameBase       = os.path.join(config.folderNames.videosFolder,         runName)
     ensureParentFolders(metricsFilename, plotFilename, checkpointFilenameBase, videoFilenameBase)
-    
+
     env             = CleanGymWrapper(GymPixelsProcessingWrapper(gym.wrappers.ResizeObservation(gym.make(config.environmentName), (64, 64))))
     envEvaluation   = CleanGymWrapper(GymPixelsProcessingWrapper(gym.wrappers.ResizeObservation(gym.make(config.environmentName, render_mode="rgb_array"), (64, 64))))
-    
+
     observationShape, actionSize, actionLow, actionHigh = getEnvProperties(env)
     print(f"envProperties: obs {observationShape}, action size {actionSize}, actionLow {actionLow}, actionHigh {actionHigh}")
 
+
+    ## Loading the model
     dreamer = Dreamer(observationShape, actionSize, actionLow, actionHigh, device, config.dreamer)
     if config.resume:
         dreamer.loadCheckpoint(checkpointToLoad)
+
+
 
     dreamer.environmentInteraction(env, config.episodesBeforeStart, seed=config.seed)
 
     iterationsNum = config.gradientSteps // config.replayRatio
     for _ in range(iterationsNum):
         for _ in range(config.replayRatio):
+
             sampledData                         = dreamer.buffer.sample(dreamer.config.batchSize, dreamer.config.batchLength)
             initialStates, worldModelMetrics    = dreamer.worldModelTraining(sampledData)
             behaviorMetrics                     = dreamer.behaviorTraining(initialStates)
             dreamer.totalGradientSteps += 1
 
+
+            ## Save checkpoint and video
             if dreamer.totalGradientSteps % config.checkpointInterval == 0 and config.saveCheckpoints:
                 suffix = f"{dreamer.totalGradientSteps/1000:.0f}k"
                 dreamer.saveCheckpoint(f"{checkpointFilenameBase}_{suffix}")

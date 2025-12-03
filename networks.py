@@ -27,7 +27,7 @@ class PriorNet(nn.Module):
         self.latentClasses = latentClasses
         self.latentSize = latentLength*latentClasses
         self.network = sequentialModel1D(inputSize, [self.config.hiddenSize]*self.config.numLayers, self.latentSize, self.config.activation)
-    
+
     def forward(self, x):
         rawLogits = self.network(x)
 
@@ -38,7 +38,7 @@ class PriorNet(nn.Module):
 
         sample = Independent(OneHotCategoricalStraightThrough(logits=logits), 1).rsample()
         return sample.view(-1, self.latentSize), logits
-    
+
 
 class PosteriorNet(nn.Module):
     def __init__(self, inputSize, latentLength, latentClasses, config):
@@ -48,7 +48,7 @@ class PosteriorNet(nn.Module):
         self.latentClasses = latentClasses
         self.latentSize = latentLength*latentClasses
         self.network = sequentialModel1D(inputSize, [self.config.hiddenSize]*self.config.numLayers, self.latentSize, self.config.activation)
-    
+
     def forward(self, x):
         rawLogits = self.network(x)
 

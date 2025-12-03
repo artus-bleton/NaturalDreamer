@@ -29,10 +29,11 @@ class Dreamer:
         self.priorNet        = PriorNet(config.recurrentSize, config.latentLength, config.latentClasses,                             config.priorNet       ).to(self.device)
         self.posteriorNet    = PosteriorNet(config.recurrentSize + config.encodedObsSize, config.latentLength, config.latentClasses, config.posteriorNet   ).to(self.device)
         self.rewardPredictor = RewardModel(self.fullStateSize,                                                                       config.reward         ).to(self.device)
+
         if config.useContinuationPrediction:
             self.continuePredictor  = ContinueModel(self.fullStateSize,                                                              config.continuation   ).to(self.device)
 
-        self.buffer         = ReplayBuffer(observationShape, actionSize, config.buffer, device)
+        self.buffer         = ReplayBuffer(observationShape, actionSize, self.recurrentSize, self.latentSize, config.buffer, device)
         self.valueMoments   = Moments(device)
 
         self.worldModelParameters = (list(self.encoder.parameters()) + list(self.decoder.parameters()) + list(self.recurrentModel.parameters()) +
@@ -50,9 +51,23 @@ class Dreamer:
 
 
     def worldModelTraining(self, data):
+        # #data :
+        #     "observations"     : observations,      # (B,T, *obs_shape)
+        #     "nextObservations" : nextObservations,  # (B,T, *obs_shape)
+        #     "actions"          : actions,           # (B,T, action_dim)
+        #     "rewards"          : rewards,           # (B,T,1)
+        #     "dones"            : dones,             # (B,T,1)
+        #     "last_latents"          : latents,           # (B,T, latentSize)
+        #     "last_recurrentStates"  : recurrentStates,   # (B,T, recurrentSize)
+        # })
+
         encodedObservations = self.encoder(data.observations.view(-1, *self.observationShape)).view(self.config.batchSize, self.config.batchLength, -1)
-        previousRecurrentState  = torch.zeros(self.config.batchSize, self.recurrentSize,    device=self.device)
-        previousLatentState     = torch.zeros(self.config.batchSize, self.latentSize,       device=self.device)
+
+        # We now take care of the initial state
+        previousLatentState     = data.last_latents[:, 0].to(self.device)           # (B, latentSize)
+        previousRecurrentState  = data.last_recurrentStates[:, 0].to(self.device)   # (B, recurrentSize)
+
+
 
         recurrentStates, priorsLogits, posteriors, posteriorsLogits = [], [], [], []
         for t in range(1, self.config.batchLength):
@@ -94,8 +109,8 @@ class Dreamer:
         posteriorLoss   = self.config.betaPosterior*torch.maximum(posteriorLoss, freeNats)
         klLoss          = (priorLoss + posteriorLoss).mean()
 
-        worldModelLoss =  reconstructionLoss + rewardLoss + klLoss # I think that the reconstruction loss is relatively a bit too high (11k) 
-        
+        worldModelLoss =  reconstructionLoss + rewardLoss + klLoss # I think that the reconstruction loss is relatively a bit too high (11k)
+
         if self.config.useContinuationPrediction:
             continueDistribution = self.continuePredictor(fullStates)
             continueLoss         = nn.BCELoss(continueDistribution.probs, 1 - data.dones[:, 1:])
@@ -130,7 +145,7 @@ class Dreamer:
         fullStates  = torch.stack(fullStates,    dim=1) # (batchSize*batchLength, imaginationHorizon, recurrentSize + latentLength*latentClasses)
         logprobs    = torch.stack(logprobs[1:],  dim=1) # (batchSize*batchLength, imaginationHorizon-1)
         entropies   = torch.stack(entropies[1:], dim=1) # (batchSize*batchLength, imaginationHorizon-1)
-        
+
         predictedRewards = self.rewardPredictor(fullStates[:, :-1]).mean
         values           = self.critic(fullStates).mean
         continues        = self.continuePredictor(fullStates).mean if self.config.useContinuationPrediction else torch.full_like(predictedRewards, self.config.discount)
@@ -184,7 +199,8 @@ class Dreamer:
 
                 nextObservation, reward, done = env.step(actionNumpy)
                 if not evaluation:
-                    self.buffer.add(observation, actionNumpy, reward, nextObservation, done)
+                    # We here add the observation, action, reward, next observation, done and the previous latent state and recurrent state to the buffer.
+                    self.buffer.add(observation, actionNumpy, reward, nextObservation, latentState, recurrentState, done)
 
                 if saveVideo and i == 0:
                     frame = env.render()
@@ -194,7 +210,7 @@ class Dreamer:
 
                 encodedObservation = self.encoder(torch.from_numpy(nextObservation).float().unsqueeze(0).to(self.device))
                 observation = nextObservation
-                
+
                 currentScore += reward
                 stepCount += 1
                 if done:
@@ -210,7 +226,7 @@ class Dreamer:
                                 video.append_data(frame)
                     break
         return sum(scores)/numEpisodes if numEpisodes else None
-    
+
 
     def saveCheckpoint(self, checkpointPath):
         if not checkpointPath.endswith('.pth'):
@@ -241,7 +257,7 @@ class Dreamer:
             checkpointPath += '.pth'
         if not os.path.exists(checkpointPath):
             raise FileNotFoundError(f"Checkpoint file not found at: {checkpointPath}")
-        
+
         checkpoint = torch.load(checkpointPath, map_location=self.device)
         self.encoder.load_state_dict(checkpoint['encoder'])
         self.decoder.load_state_dict(checkpoint['decoder'])
@@ -259,4 +275,3 @@ class Dreamer:
         self.totalGradientSteps = checkpoint['totalGradientSteps']
         if self.config.useContinuationPrediction:
             self.continuePredictor.load_state_dict(checkpoint['continuePredictor'])
-
