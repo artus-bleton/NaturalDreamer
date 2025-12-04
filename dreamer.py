@@ -3,6 +3,9 @@ import torch.nn as nn
 from torch.distributions import kl_divergence, Independent, OneHotCategoricalStraightThrough, Normal
 import numpy as np
 import os
+from optimizer import LaPropAGC
+
+from nfnets.agc import AGC # Needs testing
 
 
 from networks import RecurrentModel, PriorNet, PosteriorNet, RewardModel, ContinueModel, EncoderConv, DecoderConv, Actor, Critic
@@ -42,9 +45,38 @@ class Dreamer:
         if self.config.useContinuationPrediction:
             self.worldModelParameters += list(self.continuePredictor.parameters())
 
-        self.worldModelOptimizer    = torch.optim.Adam(self.worldModelParameters,   lr=self.config.worldModelLR)
-        self.actorOptimizer         = torch.optim.Adam(self.actor.parameters(),     lr=self.config.actorLR)
-        self.criticOptimizer        = torch.optim.Adam(self.critic.parameters(),    lr=self.config.criticLR)
+        self.worldModelOptimizer = LaPropAGC(
+            self.worldModelParameters,
+            lr=self.config.worldModelLR,
+            beta1=0.9,
+            beta2=0.999,
+            eps=1e-20,
+            agc_clip=0.3,
+            agc_eps=1e-3,
+            weight_decay=0.0,
+        )
+
+        self.actorOptimizer = LaPropAGC(
+            self.actor.parameters(),
+            lr=self.config.actorLR,
+            beta1=0.9,
+            beta2=0.999,
+            eps=1e-20,
+            agc_clip=0.3,
+            agc_eps=1e-3,
+            weight_decay=0.0,
+        )
+
+        self.criticOptimizer = LaPropAGC(
+            self.critic.parameters(),
+            lr=self.config.criticLR,
+            beta1=0.9,
+            beta2=0.999,
+            eps=1e-20,
+            agc_clip=0.3,
+            agc_eps=1e-3,
+            weight_decay=0.0,
+        )
 
         self.totalEpisodes      = 0
         self.totalEnvSteps      = 0
