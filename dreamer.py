@@ -5,8 +5,6 @@ import numpy as np
 import os
 from optimizer import LaPropAGC
 
-from nfnets.agc import AGC # Needs testing
-
 
 from networks import RecurrentModel, PriorNet, PosteriorNet, RewardModel, ContinueModel, EncoderConv, DecoderConv, Actor, Critic
 from utils import computeLambdaValues, Moments
@@ -45,6 +43,7 @@ class Dreamer:
         if self.config.useContinuationPrediction:
             self.worldModelParameters += list(self.continuePredictor.parameters())
 
+        # New Optimizers ----------------------------------------------
         self.worldModelOptimizer = LaPropAGC(
             self.worldModelParameters,
             lr=self.config.worldModelLR,
@@ -104,6 +103,7 @@ class Dreamer:
 
         recurrentStates, priorsLogits, posteriors, posteriorsLogits = [], [], [], []
         for t in range(1, self.config.batchLength):
+            print(t)
             recurrentState              = self.recurrentModel(previousRecurrentState, previousLatentState, data.actions[:, t-1])
             _, priorLogits              = self.priorNet(recurrentState)
             posterior, posteriorLogits  = self.posteriorNet(torch.cat((recurrentState, encodedObservations[:, t]), -1))

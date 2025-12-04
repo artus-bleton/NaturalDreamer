@@ -81,7 +81,7 @@ class LaPropAGC(Optimizer):
             g.mul_(scale)
 
     @torch.no_grad()
-    def step(self, closure=None):
+    def step(self, closure=None) -> float:
         """
         Un step:
         - calcule AGC sur chaque gradient (optionnel)
