@@ -46,8 +46,6 @@ def main(configFile):
             behaviorMetrics                     = dreamer.behaviorTraining(initialStates)
             dreamer.totalGradientSteps += 1
 
-            print({"envSteps": dreamer.totalEnvSteps, "gradientSteps": dreamer.totalGradientSteps, "totalReward" : mostRecentScore})
-
 
             ## Save checkpoint and video
             if dreamer.totalGradientSteps % config.checkpointInterval == 0 and config.saveCheckpoints:
